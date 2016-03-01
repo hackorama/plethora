@@ -1,0 +1,66 @@
+
+Linux
+-----
+
+Use snmpwalk
+
+Install snmpwalk form snmp-base and required mibs from snmp-mibs-downloader
+
+$ wget http://hackorama.com:9999/snmp/mib -O ~/.snmp/mibs/PLETHORA-MIB.txt
+
+$ snmpwalk -m +PLETHORA-MIB  -v2c -c community  localhost:9997 .1.3.6.1.4.1.11.4.999
+PLETHORA-MIB::plethora = STRING: "plethora"
+PLETHORA-MIB::clusterhostname = ""
+PLETHORA-MIB::clusterport = Wrong Type (should be OCTET STRING): INTEGER: 0
+PLETHORA-MIB::httphostname = STRING: "0.0.0.0"
+PLETHORA-MIB::httpport = Wrong Type (should be OCTET STRING): INTEGER: 9999
+PLETHORA-MIB::jmxhostname = STRING: "0.0.0.0"
+PLETHORA-MIB::jmxport = Wrong Type (should be OCTET STRING): INTEGER: 9998
+PLETHORA-MIB::servername = STRING: "Plethora Metrics Server"
+PLETHORA-MIB::serverreleasedate = ""
+PLETHORA-MIB::serverversion = STRING: "0.1"
+PLETHORA-MIB::snmphostname = STRING: "0.0.0.0"
+PLETHORA-MIB::snmpport = Wrong Type (should be OCTET STRING): INTEGER: 9997
+PLETHORA-MIB::system = STRING: "system"
+PLETHORA-MIB::cpu = INTEGER: 1
+PLETHORA-MIB::memory = INTEGER: 44
+SNMPv2-SMI::zeroDotZero = No more variables left in this MIB View (It is past the end of the MIB tree)
+$
+
+Windows
+-------
+
+Use Getif
+
+$ pwd
+/cygdrive/c/Program Files (x86)/Getif 2.3.1/Mibs
+$ wget http://hackorama.com:8888/snmp/mib -O PLETHORA-MIB.txt
+$ rm .index 
+
+Installing snmp-mibs-downloader
+-------------------------------
+
+$ sudo vim /etc/apt/sources.list 
+deb http://mirrors.digitalocean.com/ubuntu trusty multiverse
+deb-src http://mirrors.digitalocean.com/ubuntu trusty multiverse
+deb http://mirrors.digitalocean.com/ubuntu trusty-updates multiverse
+deb-src http://mirrors.digitalocean.com/ubuntu trusty-updates multiverse 
+$ sudo apt-get update
+$ sudo apt-get install snmp-mibs-downloader
+
+$ sudo vim /etc/apt/sources.list 
+#deb http://mirrors.digitalocean.com/ubuntu trusty multiverse
+#deb-src http://mirrors.digitalocean.com/ubuntu trusty multiverse
+#deb http://mirrors.digitalocean.com/ubuntu trusty-updates multiverse
+#deb-src http://mirrors.digitalocean.com/ubuntu trusty-updates multiverse 
+$ sudo apt-get update
+
+With all dependent mibs installed, snmptranslate will work 
+
+$ snmptranslate -m +PLETHORA-MIB -IR metrics
+PLETHORA-MIB::metrics
+
+$ snmptranslate PLETHORA-MIB::metrics
+PLETHORA-MIB::metrics
+
+

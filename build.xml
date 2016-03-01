@@ -1,0 +1,162 @@
+<project name="plethora" default="dist" basedir=".">
+	<description>Builds the Plethora distribution</description>
+
+	<target name="init">
+		<tstamp />
+		<property environment="env" />
+
+		<!-- if not set by command line argument -Dbuilddir, check if set in env as PLETHORA_BUILDDIR -->
+		<condition property="builddir" value="${env.PLETHORA_BUILDDIR}">
+			<and>
+				<isset property="env.PLETHORA_BUILDDIR" />
+				<not>
+					<isset property="builddir" />
+				</not>
+			</and>
+		</condition>
+
+		<!-- if not set by commnad line -Dbuilddir or by env PLETHORA_BUILDDIR, default to "build" -->
+		<condition property="builddir" value="build">
+			<not>
+				<isset property="builddir" />
+			</not>
+		</condition>
+
+		<property file="build.properties" />
+
+		<!-- source locations and "src.bin" used during dev  -->
+		<property name="src" location="src/java" />
+		<property name="src.lib" location="lib" />
+		<property name="src.etc" location="etc" />
+		<property name="src.bin" location="src/bin" />
+		<property name="src.doc" location="doc" />
+		<property name="classes" location="${builddir}/classes" />
+
+		<!-- distribution build -->
+		<property name="dist.base" location="${builddir}/distro" />
+		<property name="dist" location="${dist.base}/plethora" />
+		<property name="bin" location="${dist}/bin" />
+		<property name="lib" location="${dist}/lib" />
+		<property name="etc" location="${dist}/etc" />
+		<property name="doc" location="${dist}/doc" />
+
+		<mkdir dir="${classes}" />
+		<mkdir dir="${dist}" />
+		<mkdir dir="${bin}" />
+		<mkdir dir="${lib}" />
+		<mkdir dir="${etc}" />
+		<mkdir dir="${doc}" />
+
+		<!-- annottaion processing -->
+		<property name="annotation.src" location="${src}/com/hackorama/plethora/server/annotations/" />
+		<property name="annotation.classes" location="${classes}" />
+		<property name="annotation.processor" value="com.hackorama.plethora.server.annotations.DocAnnotationProcessor" />
+	</target>
+
+	<target name="compile" depends="init">
+		<!-- compile the annottation class first to build the annottation processor -->
+		<javac srcdir="${annotation.src}" destdir="${annotation.classes}" debug="on" deprecation="on" />
+
+		<javac srcdir="${src}" destdir="${classes}" debug="on" deprecation="on">
+			<classpath>
+				<pathelement location="${src.lib}/" />
+				<fileset dir="${src.lib}/json/">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="${src.lib}/jmx/">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="${src.lib}/snmp/">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+			<compilerarg line="-processorpath ${annotation.classes}" />
+			<compilerarg line="-processor ${annotation.processor}" />
+			<compilerarg line="-Aprop.file=${doc}/plethora.conf" />
+			<compilerarg line="-Aprop.help.file=${doc}/configuration.html" />
+			<compilerarg line="-Aapi.help.file=${doc}/api.html" />
+		</javac>
+	</target>
+
+	<target name="jars" depends="compile">
+		<jar jarfile="${dist}/bin/plethora.jar">
+			<fileset dir="${classes}" casesensitive="yes" />
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Build" value="${app.version}" />
+				<attribute name="Implementation-Title" value="The Plethora" />
+				<attribute name="Implementation-Version" value="${app.version}" />
+				<attribute name="Implementation-Vendor" value="Hackorama" />
+				<attribute name="Implementation-VendorId" value="hackorama.com" />
+				<attribute name="Specification-Title" value="The Plethora" />
+				<attribute name="Specification-Version" value="${app.version.release}.${app.version.major}" />
+				<attribute name="Specification-Vendor" value="Hackorama" />
+			</manifest>
+		</jar>
+
+		<jar jarfile="${dist}/bin/plethora_client.jar">
+			<fileset dir="${classes}" casesensitive="yes">
+				<include name="**/plethora/channel/*.class" />
+				<include name="**/plethora/channel/jmx/*.class" />
+				<include name="**/plethora/common/*.class" />
+				<include name="**/plethora/common/data/*.class" />
+				<include name="**/plethora/common/jmx/*.class" />
+			</fileset>
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Build" value="${app.version}" />
+				<attribute name="Implementation-Title" value="The Plethora" />
+				<attribute name="Implementation-Version" value="${app.version}" />
+				<attribute name="Implementation-Vendor" value="Hackorama" />
+				<attribute name="Implementation-VendorId" value="hackorama.com" />
+				<attribute name="Specification-Title" value="The Plethora Client Libraries" />
+				<attribute name="Specification-Version" value="${app.version.release}.${app.version.major}" />
+				<attribute name="Specification-Vendor" value="Hackorama" />
+			</manifest>
+		</jar>
+	</target>
+
+	<target name="dist" depends="jars">
+
+		<chmod file="${bin}" perm="700" includes="**/*" />
+		<chmod dir="${dist}/etc" perm="700" includes="**/*" />
+		<chmod dir="${doc}" perm="644" includes="**/*" />
+
+		<!-- copy the jars back into source bin, used in dev stage -->
+		<copy todir="${src.bin}">
+			<fileset file="${bin}/plethora.jar" />
+			<fileset file="${bin}/plethora_client.jar" />
+		</copy>
+
+		<!-- copy the annotation processor generated docs back to source docs -->
+		<copy todir="${src.doc}">
+			<fileset dir="${doc}">
+			</fileset>
+		</copy>
+
+		<copy todir="${etc}">
+			<fileset dir="${src.etc}">
+			</fileset>
+		</copy>
+
+		<copy todir="${lib}">
+			<fileset dir="${src.lib}">
+			</fileset>
+		</copy>
+
+		<copy todir="${bin}">
+			<fileset dir="${src.bin}">
+			</fileset>
+		</copy>
+
+		<copy file="OPSWplethora-LC.version" todir="${dist}" />
+	</target>
+
+
+	<target name="clean" depends="init">
+		<delete dir="${builddir}" />
+		<delete dir="${src.bin}/plethora.jar" />
+		<delete dir="${src.bin}/plethora_client.jar" />
+	</target>
+
+</project>

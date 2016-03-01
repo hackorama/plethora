@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Codepro Project" basedir="." default="main">
+
+	<!-- verify the codepro plugin is installd and available to eclipse by checking for a common class from codepro -->
+	<available property="have.codepro.plugin" classname="com.instantiations.assist.eclipse.ant.task.XMLAntTask" />
+
+	<target name="codepro.plugin.check" unless="have.codepro.plugin">
+		<echo>
+ERROR: Requires the codepro eclipse plugin to be installed with eclipse.
+ERROR: Untill the above issue is corrected, codepro tasks will not be attempted.	
+		</echo>
+	</target>
+
+	<target name="main" depends="codepro.plugin.check" if="have.codepro.plugin">
+
+		<!-- relative path from resources/codepro -->
+		<property name="app.src" location="../../../src/java" /> 
+		<property name="codepro.results" location="../../results/codepro" />
+		<property name="codepro.audit.out" location="${codepro.results}/audit.stdout.txt" />
+		<property name="codepro.metrics.out" location="${codepro.results}/metrics.stdout.txt" />
+		<property name="codepro.callgraph.out" location="${codepro.results}/callgraph.stdout.txt" />
+		<property name="codepro.audit.file" location="${codepro.results}/codepro-audit.html" />
+		<property name="codepro.metrics.file" location="${codepro.results}/codepro-metrics-details.html" />
+		<property name="codepro.metrics.summary.file" location="${codepro.results}/codepro-metrics.html" />
+		<property name="codepro.callgraph.file" location="${codepro.results}/codepro-callgraph.txt" />
+		<property name="codepro.depend.file" location="${codepro.results}/codepro-depend.html" />
+
+		<mkdir dir="${codepro.results}" />
+
+		<!-- investigate switch to instantiations.audit -->
+		<codepro.audit auditRuleSetName="CodePro Default" resultFile="${codepro.audit.out}">
+			<fileSet dir="${app.src}" />
+			<classpath>
+				<pathelement location="${java.home}/lib/rt.jar" />
+			</classpath>
+			<report file="${codepro.audit.file}" format="html">
+			</report>
+		</codepro.audit>
+
+		<codepro.metrics metricSetName="CodePro Default" resultFile="${codepro.metrics.out}" includeSubScopes="yes" includeTypeLevelMetrics="yes" includeDetails="yes">
+			<fileSet dir="${app.src}" />
+			<classpath>
+				<pathelement location="${java.home}/lib/rt.jar" />
+			</classpath>
+			<report file="${codepro.metrics.file}" format="html" includeSubScopes="yes" includeTypeLevelMetrics="yes" includeDetails="yes" />
+			<report file="${codepro.metrics.summary.file}" format="html" includeSubScopes="yes" />
+		</codepro.metrics>
+
+		<!-- callgraph task is broken , and codepro had deprecated it without fix ?
+		<codepro.callgraph resultFile="${codepro.callgraph.out}" >
+			<fileSet dir="${app.src}" />
+			<classpath>
+				<pathelement location="${java.home}/lib/rt.jar" />
+			</classpath>
+		</codepro.callgraph>
+		-->
+	</target>
+</project>

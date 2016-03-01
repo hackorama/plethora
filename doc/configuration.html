@@ -1,0 +1,58 @@
+<html>
+<head>
+  <title>Plethora Configuration Properties</title>
+</head>
+<body>
+<h1>Plethora Configuration Properties</h1>
+<p>These are defined in the configuration file provided as an argument to Plethora startup and follows the well known simple <a href=http://docs.oracle.com/javase/6/docs/api/java/util/Properties.html#load(java.io.Reader)>java properties file format</a>
+<p>
+
+<table border="1">
+<tr><th>Name</th><th>Default Value</th><th>Type</th><th>Description</th></tr>  <tr>
+    <td>web.root</td>
+    <td>web</td>
+    <td>Optional</td>    <td>The location of the static web content, defaults to location relative to install root</td>
+  </tr>
+  <tr>
+    <td>log.root</td>
+    <td>log</td>
+    <td>Optional</td>    <td>Log file location, defaults to location relative to install root</td>
+  </tr>
+  <tr>
+    <td>data.refresh.seconds</td>
+    <td>5</td>
+    <td>Optional</td>    <td>Defined in seconds, how often metric data is collected from the application modules</td>
+  </tr>
+  <tr>
+    <td>connection.retry.seconds</td>
+    <td>60</td>
+    <td>Optional</td>    <td>Defined in seconds, How often to poll for application module connections</td>
+  </tr>
+  <tr>
+    <td>http.server.thread.pool.size</td>
+    <td>2</td>
+    <td>Optional</td>    <td> Thread pool size for HTTP metric server</td>
+  </tr>
+  <tr>
+    <td>snmp.server.thread.pool.size</td>
+    <td>2</td>
+    <td>Optional</td>    <td> Thread pool size for SNMP metric server</td>
+  </tr>
+  <tr>
+    <td>system.process.rescan.secs</td>
+    <td>600</td>
+    <td>Optional</td>    <td>Defined in seconds, how often to rescan for application process ids, in case they have restarted with a new pid</td>
+  </tr>
+  <tr>
+    <td>system.data.caching.secs</td>
+    <td>system.data.caching.secs</td>
+    <td>Optional</td>    <td>Defined in seconds, how long to cache the system metrics collected. Higher value reduces any system metric collection overhead</td>
+  </tr>
+  <tr>
+    <td>system.metrics</td>
+    <td>true</td>
+    <td>Optional</td>    <td>Enables or disables system metrics collection</td>
+  </tr>
+</table>
+</body>
+</html>

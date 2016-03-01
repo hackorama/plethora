@@ -1,0 +1,6 @@
+outlook = 11340
+win = 548
+bad = 2252525252
+fooboo = 9072 
+chrome = 9087
+chr = xxx 

@@ -1,0 +1,190 @@
+<project name="Plethora CPP Agent Unit Test" default="tests" basedir=".">
+
+	<property name="notice" value="
+REQUIRES ANT 1.7 OR LATER FOR USING LATEST FRAMEWORKS LIKE JUNIT4${line.separator}
+SOME OF THE TASKS WILL FAIL WITH OLDER VERSION OF ANT${line.separator}
+YOU ARE RUNNING ${ant.version}" />
+
+	<description>
+Build and run unit tests and generate the test results and coverage reports
+        
+Uses following tools
+    Unit Tests                  : CATCH (http://catch-lib.net)
+    Code coverage               : LCOV (http://ltp.sourceforge.net/coverage/)
+		
+Requires lcov and genhtml in path  
+		
+Optional resource files:
+    A custom junit XSL file     : ./resources/junit-noframes.xsl
+
+Generates :
+    The unit test result report and code coverage report.
+    
+${notice}
+	</description>
+
+	<target name="init">
+
+		<echo>${notice}</echo>
+
+		<!-- either pass options as -Doption or via build.properties, or set it here  -->
+		<property file="build.properties" />
+		<condition property="is.windows">
+			<os family="windows" />
+		</condition>
+		<!-- NOTE: need some paths as value to pass to cygwin bash instead of just location -->
+		<property name="src.path" value="./src" />
+		<property name="results.path" value="./results" />
+		<property name="reports.path" value="./reports" />
+		<property name="custom.xsl.dir" location="./resources" />
+		<property name="custom.xsl.file" location="${custom.xsl.dir}/junit-noframes.xsl" />
+
+		<property name="src" location="${src.path}" />
+		<property name="results" location="${results.path}" />
+		<property name="reports" location="${reports.path}" />
+		<property name="report.file.name" value="catch.junit.report.xml" />
+		<property name="report.file" location="${results}/${report.file.name}" />
+		<property name="reports.tests" location="${reports}/unit" />
+		<property name="reports.coverage.path" value="${reports.path}/coverage" />
+		<property name="reports.coverage" location="${reports.coverage.path}" />
+		<property name="test.exe.name" location="${src}/test" />
+
+		<!-- add .exe for cygwin -->
+		<condition property="test.exe" value="${test.exe.name}.exe">
+			<isset property="is.windows" />
+		</condition>
+		<condition property="test.exe" value="${test.exe.name}">
+			<not>
+				<isset property="is.windows" />
+			</not>
+		</condition>
+
+		<!-- select html report style based on custom xsl file availability -->
+		<available file="${custom.xsl.file}" property="custom.report.mode" />
+		<mkdir dir="${results}" />
+		<mkdir dir="${reports.tests}" />
+		<mkdir dir="${reports.coverage}" />
+		<exec dir="${basedir}" executable="hostname" outputproperty="host.name" />
+	</target>
+
+	<target name="make" depends="init">
+		<exec executable="make" dir="${src}" failonerror="true" />
+		<!-- bail if test executable is not found -->
+		<fail message="Test executable not found: ${test.exe}">
+			<condition>
+				<not>
+					<available file="${test.exe}" />
+				</not>
+			</condition>
+		</fail>
+	</target>
+
+	<target name="test.exec" depends="make">
+		<tstamp />
+		<exec executable="${test.exe}" failonerror="false" dir="${src}">
+			<arg line="--reporter junit --out ${report.file}" />
+		</exec>
+        
+        <!-- tweak the junit report xml for the junitreport ant module -->
+       	<copy file="${report.file}" tofile="${report.file}.orig"/>
+		<replace file="${report.file}" token="&lt;testsuites>" value="&lt;!--testsuites -->" />
+		<replace file="${report.file}" token="&lt;/testsuites>" value="&lt;!--/testsuites-->" />
+		<replace file="${report.file}" token="&lt;testsuites/>" value="&lt;!-- testsuites/ -->" />
+        
+		<replace file="${report.file}" token="&lt;system-out>" value="&lt;!-- system-out>" />
+		<replace file="${report.file}" token="&lt;/system-out>" value="&lt;system-out -->" />
+		<replace file="${report.file}" token="&lt;system-out/>" value="&lt;!-- system-out/ -->" />
+        
+		<replace file="${report.file}" token="&lt;system-err>" value="&lt;!-- system-err>" />
+		<replace file="${report.file}" token="&lt;/system-err>" value="&lt;system-err -->" />
+		<replace file="${report.file}" token="&lt;system-err/>" value="&lt;!-- system-err/ -->" />
+        
+		<replace file="${report.file}" token='timestamp="tbd"' value='timestamp="${TODAY}"' />
+		<replace file="${report.file}" token='time="tbd"' value='time="1"' />
+		<replace file="${report.file}" token='hostname="tbd"' value='hostname="${host.name}"' />
+	</target>
+
+	<target name="report.mode" depends="init">
+		<!-- select html report style based on custom xsl file availability -->
+		<available file="${custom.xsl.file}" property="custom.report.mode" />
+	</target>
+
+	<target name="custom.report" if="custom.report.mode" depends="test.exec">
+		<tstamp />
+		<junitreport todir="${reports.tests}">
+			<fileset dir="${results}">
+				<include name="${report.file.name}" />
+			</fileset>
+			<report format="noframes" todir="${reports.tests}" styledir="${custom.xsl.dir}">
+				<param name="TITLE" expression="${ant.project.name}" />
+				<param name="SUBTITLE" expression="Tested on ${TODAY} by user ${user.name} on ${os.name} ${os.arch} ${os.version}" />
+			</report>
+		</junitreport>
+	</target>
+
+	<target name="default.report" unless="custom.report.mode"  depends="test.exec">
+		<echo level="info">
+Using default report style, for custom report formatting 
+please provide customized xsl version as ${custom.xsl.file}"
+    	</echo>
+		<tstamp />
+		<junitreport todir="${reports.tests}">
+			<fileset dir="${results}">
+				<include name="${report.file.name}" />
+			</fileset>
+			<report format="noframes" todir="${reports.tests}">
+				<param name="TITLE" expression="${ant.project.name}" />
+				<param name="SUBTITLE" expression="Tested on ${TODAY} by user ${user.name} on ${os.name} ${os.arch} ${os.version}" />
+			</report>
+		</junitreport>
+	</target>
+
+	<target name="coverage.init" depends="init">
+		<property name="coverage.file.path" value="${results.path}/coverage.info" />
+		<property name="coverage.file" location="${coverage.file.path}" />
+	</target>
+
+	<target name="coverage" depends="coverage.init">
+		<!-- for cygwin support run through bash -->
+		<exec executable="bash" failonerror="true" dir=".">
+			<arg line="-c 'lcov --capture --directory ${src.path} --output-file ${coverage.file.path}'" />
+		</exec>
+		<exec executable="bash" failonerror="true" dir=".">
+			<arg line="-c 'lcov --remove ${coverage.file.path} 'c++/*' --output-file ${coverage.file.path}'" />
+		</exec>
+		<exec executable="bash" failonerror="true" dir=".">
+			<arg line="-c 'lcov --remove ${coverage.file.path} 'tests/*' --output-file ${coverage.file.path}'" />
+		</exec>
+		<exec executable="bash" failonerror="true" dir=".">
+			<arg line="-c 'genhtml ${coverage.file.path} --output-directory ${reports.coverage.path}'" />
+		</exec>
+		<!-- code coverage artifacts from gcov -->
+		<delete>
+			<fileset dir="${src}" includes="**/*.gcno"/>
+			<fileset dir="${src}" includes="**/*.gcda"/>
+		</delete>
+	</target>
+
+	<target name="unit" depends="custom.report, default.report">
+		<echo>Done unit tests</echo>
+	</target>
+
+	<target name="clean" depends="init" 
+		description="Cleans all test build artifacts and results">
+		<delete dir="${results}" />
+		<delete dir="${reports}" />
+		<delete file="${test.exe}" verbose="true"/>
+		<!-- code coverage artifacts from gcov -->
+		<delete verbose="true">
+			<fileset dir="${src}" includes="*.gcno"/>
+			<fileset dir="${src}" includes="*.gcda"/>
+		</delete>
+		<echo>Done clean</echo>
+	</target>
+
+	<target name="tests" depends="unit, coverage" 
+	   description="Build and run unit tests and generate the test results and coverage reports">
+		<echo>Done test report and coverage in ${reports}</echo>
+	</target>
+    
+</project>

@@ -1,0 +1,1001 @@
+<project name="Plethora Quality Metrics" default="tests" basedir=".">
+
+	<property name="notice" value="
+REQUIRES ANT 1.7 OR LATER FOR USING LATEST FRAMEWORKS LIKE JUNIT4${line.separator}
+SOME OF THE TASKS WILL FAIL WITH OLDER VERSION OF ANT${line.separator}
+YOU ARE RUNNING ${ant.version}" />
+
+	<description>
+Unit tests and code quality metrics tasks using the following tools
+	Code Quality   : FindBugs, PMD , Google Codepro Audit
+	Design Quality : jDepend, Google Codepro Metrics
+	Unit Tests     : jUnit, Mockito
+	Code Coverage  : Emma, jUnit 
+	Coding Style   : CheckStyle
+	Documentation  : Javadoc, Umlgraph
+		
+Set following properties by either -Dproperty=value or in build.properties 
+		
+	Properties for the application to analyze : app.src, app.classes, app.lib 
+	Properties for the junit tests : test.src, test.classes, test.lib 
+	Properties to locate the required libraries :
+	  findbugs.home   : path to findbugs install
+	  pmd.home        : path to PMD install
+	  jdepend.home    : path to jDepend install
+	  checkstyle.home : path to CheckStyle install 
+	  emma.home       : path to Emma install 
+	  junit.lib       : path to junit and any other testing framework jars 
+	  eclipse.home    : path to eclipse with Codepro plugin installed
+	  umlgraph.home   : path to Umlgraph install
+	  resource.files  : path to required report formatter files (default ./resources)
+		
+The XSL files from resource.files :
+	codepro.xml jdepend.xsl jdepend2dot.xsl junit-noframes.xsl
+	default.xsl pmd-report-per-class.xslt sun_checks.xml
+	checkstyle-noframes-severity-sorted.xsl
+	
+${notice}
+	</description>
+
+	<target name="init">
+		<!-- either pass options as -Doption or via build.properties, or set it here  -->
+		<property file="build.properties" />
+		
+		<echo>${notice}</echo>
+
+		<condition property="is.windows">
+			<os family="windows" />
+		</condition>
+
+		<condition property="project.name" value="${ant.project.name}">
+			<not>
+				<isset property="project.name" />
+			</not>
+		</condition>
+
+		<!-- the application we are testing or analysing -->
+		<property name="app.src" location="../main/java" />
+		<property name="app.classes" location="../../bin" />
+		<property name="app.lib" location="../../lib" />
+		<path id="app.classpath">
+			<fileset dir="${app.lib}">
+				<include name="**/*.jar" />
+			</fileset>
+		</path>
+
+		<!-- the xsl report formatters location -->
+		<property name="resource.files" location="./resources" />
+
+		<!-- all results and reports  -->
+		<property name="results" location="./results" />
+	</target>
+
+	<!-- JUNIT TESTS -->
+
+	<target name="tests.init" depends="init">
+		<property name="test.src" location="./java" />
+		<property name="test.lib" location="../../lib" />
+		<property name="test.classes" location="./bin" />
+		<property name="test.results" location="${results}/junit/" />
+		<property name="test.tests.reports" location="${test.results}" />
+		<property name="custom.xsl.dir" location="${resource.files}/junit" />
+		<property name="custom.xsl.file" location="${custom.xsl.dir}/junit-noframes.xsl" />
+		<available file="${custom.xsl.file}" property="tests.custom.report.mode" />
+		<!-- if not set by -Dtest.verbose=true default to false -->
+		<condition property="test.verbose" value="false">
+			<not>
+				<isset property="test.verbose" />
+			</not>
+		</condition>
+	</target>
+
+	<target name="tests.libs.check">
+		<condition property="have.test.libs.home">
+			<isset property="junit.lib" />
+		</condition>
+		<available file="${junit.lib}" property="have.valid.test.libs.home" />
+	</target>
+
+	<target name="tests.junit.check" if="have.valid.test.libs.home">
+		<pathconvert property="have.junit" setonempty="false" pathsep=" ">
+			<path>
+				<fileset dir="${junit.lib}" includes="*junit*jar" />
+			</path>
+		</pathconvert>
+	</target>
+
+	<target name="tests.junit.check.in.lib" unless="junit.lib">
+		<!-- if junit lib path not set, try to use test.lib -->
+		<property name="junit.lib" value="${test.lib}" />
+		<pathconvert property="have.junit" setonempty="false" pathsep=" ">
+			<path>
+				<fileset dir="${junit.lib}" includes="*junit*jar" />
+			</path>
+		</pathconvert>
+	</target>
+
+	<target name="tests.check" depends="tests.libs.check, tests.junit.check, tests.junit.check.in.lib">
+		<condition property="have.test.libs">
+			<and>
+				<isset property="have.test.libs.home" />
+				<isset property="have.junit" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="tests.libs.verify" unless="have.junit">
+		<fail>Missing Dependencies 
+			
+Please provide a valid location for junit and other test framework jars as -Djunit.lib=/path/to/libs
+		
+		</fail>
+	</target>
+
+	<target name="tests.junit.verify" unless="have.junit" if="have.test.libs.home">
+		<fail>Missing Dependencies 
+
+The provided lib location, ${junit.lib} is not valid, does not have junit jar.
+			
+		</fail>
+	</target>
+
+	<target name="tests.verify" depends="tests.junit.verify, tests.libs.verify" unless="have.junit">
+		<fail>Missing Dependencies 
+
+Untill the above issues are corrected, junit test tasks will not be attempted.
+			
+		</fail>
+
+	</target>
+
+	<target name="tests.compile" if="have.test.libs">
+		<mkdir dir="${test.classes}" />
+		<javac srcdir="${test.src}" destdir="${test.classes}" debug="on" deprecation="on">
+			<classpath>
+				<!-- get junit and other test framework jars -->
+				<fileset dir="${junit.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="${test.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<!-- application lib jars -->
+				<fileset dir="${app.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<pathelement location="${app.classes}" />
+			</classpath>
+		</javac>
+	</target>
+
+	<target name="tests.run" depends="tests.compile, tests.verify" if="have.junit">
+		<!-- runs the junit tests -->
+		<mkdir dir="${test.results}" />
+		<!-- add showoutput="yes" for test output to console -->
+		<junit printsummary="yes" haltonfailure="false" showoutput="${test.verbose}">
+			<classpath>
+				<!-- the test classes -->
+				<pathelement location="${test.classes}" />
+				<!-- get junit and other test framework jars -->
+				<fileset dir="${junit.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="${test.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<!-- application lib jars -->
+				<fileset dir="${app.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<pathelement location="${app.classes}" />
+			</classpath>
+
+			<formatter type="xml" />
+
+			<!-- save test results as xml to specified directory -->
+			<batchtest fork="yes" todir="${test.results}">
+				<fileset dir="java">
+					<include name="**/*Test.java" />
+					<!-- exclude old non junit test folder -->
+					<exclude name="**/test/**" />
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
+
+	<target name="tests.report.mode">
+		<!-- select html tests.report style based on custom xsl file availability -->
+		<available file="${custom.xsl.file}" property="tests.custom.report.mode" />
+	</target>
+
+	<!-- 
+	custom_tests.report and default_tests.report are identical tests.report tragets 
+	except custom_tests.report uses "styledir" attribute in the "tests.report" task
+	and passes in additional params to the custom stylesheet 
+	-->
+	<target name="tests.custom.report" if="tests.custom.report.mode">
+		<tstamp />
+		<mkdir dir="${test.tests.reports}" />
+		<junitreport todir="${test.tests.reports}">
+			<fileset dir="${test.results}">
+				<include name="TEST-*.xml" />
+			</fileset>
+			<!-- single page tests.report, use "frames" for  multi page tests.report -->
+			<report format="noframes" todir="${test.tests.reports}" styledir="${custom.xsl.dir}">
+				<param name="TITLE" expression="${project.name} Unit Test Results" />
+				<param name="SUBTITLE" expression="Tested on ${TODAY} by user ${user.name} on ${os.name} ${os.arch} ${os.version} with Java ${java.version}" />
+			</report>
+		</junitreport>
+	</target>
+
+	<target name="tests.default.report" unless="tests.custom.report.mode">
+		<echo level="info">
+Using the default tests.report style, For custom tests.report style please provide  
+your own customized xsl version at ${custom.xsl.file}" 
+		</echo>
+		<mkdir dir="${test.tests.reports}" />
+		<!-- use the saved xml tests.reports and create html tests.report -->
+		<junitreport todir="${test.tests.reports}">
+			<fileset dir="${test.results}">
+				<include name="TEST-*.xml" />
+			</fileset>
+			<!-- single page tests.report, use "frames" for  multi page tests.report -->
+			<report format="noframes" todir="${test.tests.reports}">
+				<param name="TITLE" expression="${project.name} Unit Test Results" />
+			</report>
+		</junitreport>
+	</target>
+
+	<target name="tests.report" depends="tests.custom.report, tests.default.report" if="have.test.libs">
+		<echo>Done test reports</echo>
+	</target>
+
+	<target name="tests" 
+		depends="tests.init, tests.check, tests.run, tests.report" 
+		description="Junit tests, requires junit and other test libs used as -Djunit.lib=/path/to/junit/lib/ ">
+		<echo>Done test tasks</echo>
+	</target>
+
+	<!-- FINDBUGS -->
+
+	<target name="findbugs.init" depends="init">
+		<property name="findbugs.resources" location="${resource.files}/findbugs" />
+		<property name="findbugs.exclude.xml.file" location="${findbugs.resources}/exclude.xml" />
+
+		<property name="findbugs.class" value="edu.umd.cs.findbugs.anttask.FindBugsTask" />
+		<property name="findbugs.jar" location="${findbugs.home}/lib/findbugs.jar" />
+		<property name="findbugs.ant.task.jar" location="${findbugs.home}/lib/findbugs-ant.jar" />
+
+		<property name="findbugs.results" value="${results}/findbugs" />
+		<property name="findbugs.tests.report.xml.file" value="${findbugs.results}/findbugs.report.xml" />
+		<property name="findbugs.tests.report.html.file" value="${findbugs.results}/findbugs.report.html" />
+		<property name="findbugs.tests.fancy.report.html.file" value="${findbugs.results}/findbugs.fancy.report.html" />
+	</target>
+
+	<target name="findbugs.check.custom.xsl">
+		<available file="${findbugs.resources}/default.xsl" property="findbugs.tests.report.xsl.file" value="${findbugs.resources}/default.xsl" />
+		<available file="${findbugs.resources}/fancy.xsl" property="findbugs.tests.fancy.report.xsl.file" value="${findbugs.resources}/fancy.xsl" />
+	</target>
+	<target name="findbugs.check.default.xsl" unless="findbugs.tests.report.xsl.file">
+		<available file="${findbugs.home}/src/xsl/default.xsl" property="findbugs.tests.report.xsl.file" value="${findbugs.home}/src/xsl/default.xsl" />
+	</target>
+	<target name="findbugs.check.fancy.xsl" unless="findbugs.tests.fancy.report.xsl.file">
+		<property name="findbugs.tests.fancy.report.xsl.file" value="findbugs.tests.report.xsl.file" />
+	</target>
+
+	<target name="findbugs.check" depends="findbugs.check.custom.xsl, findbugs.check.default.xsl, findbugs.check.fancy.xsl">
+		<condition property="have.findbugs.home" value="true">
+			<isset property="findbugs.home" />
+		</condition>
+		<available property="have.findbugs.jar" file="${findbugs.jar}" />
+		<condition property="have.findbugs" value="true">
+			<and>
+				<isset property="have.findbugs.home" />
+				<isset property="have.findbugs.jar" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="findbugs.verify.path" unless="findbugs.home">
+		<fail>Missing Dependencies
+			
+Please provide a valid findbugs install as -Dfindbugs.home=/path/to/findbugs
+			
+		</fail>
+	</target>
+
+	<target name="findbugs.verify.jar" unless="have.findbugs.jar" if="findbugs.home">
+		<fail>Missing Dependencies 
+
+The provided findbugs home, ${findbugs.home} is not valid.
+		
+		</fail>
+
+	</target>
+
+	<target name="findbugs.verify" depends="findbugs.verify.path, findbugs.verify.jar" unless="have.findbugs">
+		<fail>Missing Dependencies 
+
+Untill the above issues are corrected, findbugs tasks will not be attempted.
+			
+		</fail>
+	</target>
+
+	<target name="findbugs.run" depends="findbugs.verify" if="have.findbugs">
+		<taskdef name="findbugs" classname="${findbugs.class}" classpath="${findbugs.ant.task.jar}" />
+		<mkdir dir="${findbugs.results}" />
+        <!-- http://findbugs.sourceforge.net/manual/anttask.html -->
+		<findbugs 
+			home="${findbugs.home}" 
+			output="xml:withMessages" 
+			outputFile="${findbugs.tests.report.xml.file}" 
+			excludeFilter="${findbugs.exclude.xml.file}" 
+			workHard="true"
+			reportLevel="low"
+			failOnError="false">
+			<auxClasspath>
+				<fileset dir="${app.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+			</auxClasspath>
+			<sourcePath path="${app.src}" />
+			<class location="${app.classes}" />
+		</findbugs>
+		<xslt in="${findbugs.tests.report.xml.file}" out="${findbugs.tests.report.html.file}" style="${findbugs.tests.report.xsl.file}" />
+		<xslt in="${findbugs.tests.report.xml.file}" out="${findbugs.tests.fancy.report.html.file}" style="${findbugs.tests.fancy.report.xsl.file}" />
+	</target>
+
+	<target name="findbugs" 
+		depends="findbugs.init, findbugs.check, findbugs.run" 
+		description="Code quality, requires -Dfindbugs.home=/path/to/findbugs">
+		<echo>Done findbugs tasks</echo>
+	</target>
+
+	<!-- PMD -->
+
+	<target name="pmd.init" depends="init">
+		<property name="pmd.resources" value="${resource.files}/pmd" />
+		<property name="pmd.results" value="${results}/pmd" />
+		<property name="pmd.tests.report.xml.file" value="${pmd.results}/pmd-tests.report.xml" />
+		<property name="pmd.tests.report.html.file" value="${pmd.results}/pmd-tests.report.html" />
+
+		<property name="pmd.class" value="net.sourceforge.pmd.ant.PMDTask" />
+		<property name="pmd.lib" value="${pmd.home}/lib" />
+	</target>
+
+	<target name="pmd.custom.xsl.check">
+		<available file="${pmd.resources}/wz-pmd-report.xslt" property="pmd.tests.report.xsl.file" value="${pmd.resources}/wz-pmd-report.xslt" />
+	</target>
+	<target name="pmd.default.xsl.check" unless="pmd.tests.report.xsl.file">
+		<available file="${pmd.home}/etc/xslt/pmd-report-per-class.xslt" property="pmd.tests.report.xsl.file" value="${pmd.home}/etc/xslt/pmd-report-per-class.xslt" />
+	</target>
+
+	<target name="pmd.check" depends="pmd.custom.xsl.check, pmd.default.xsl.check">
+		<condition property="have.pmd.home" value="true">
+			<isset property="pmd.home" />
+		</condition>
+		<available property="have.pmd.lib" file="${pmd.lib}" />
+		<condition property="have.pmd" value="true">
+			<and>
+				<isset property="have.pmd.home" />
+				<isset property="have.pmd.lib" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="pmd.path.verify" unless="pmd.home">
+		<fail>Missing Dependencies 
+			
+Please provide a valid pmd install as -Dpmd.home=/path/to/pmd
+		
+		</fail>
+	</target>
+
+	<target name="pmd.lib.verify" unless="have.pmd.lib" if="pmd.home">
+		<fail>Missing Dependencies 
+			
+The provided pmd home, ${pmd.home} is not valid.
+		
+		</fail>
+	</target>
+
+	<target name="pmd.verify" depends="pmd.path.verify, pmd.lib.verify" unless="have.pmd">
+		<fail>Missing Dependencies 
+			
+Untill the above issues are corrected, pmd tasks will not be attempted.
+		
+		</fail>
+	</target>
+
+	<target name="pmd" 
+		depends="pmd.init, pmd.check, pmd.run" 
+		description="Code quality, requires -Dpmd.home=/path/to/pmd">
+		<echo>Done pmd tasks</echo>
+	</target>
+
+	<target name="pmd.run" depends="pmd.verify" if="have.pmd">
+		<mkdir dir="${pmd.results}" />
+		<path id="pmd.classpath">
+			<fileset dir="${pmd.lib}">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+		<taskdef name="pmd" classname="${pmd.class}" classpathref="pmd.classpath" />
+		<!-- see all rule sets from jar -tvf pmd-bin-5.0.1/lib/pmd-5.0.1.jar | grep rulesets -->
+		<pmd rulesetfiles="rulesets/internal/all-java.xml">
+			<formatter type="xml" toFile="${pmd.tests.report.xml.file}" />
+			<fileset dir="${app.src}">
+				<include name="**/*.java" />
+			</fileset>
+		</pmd>
+		<xslt in="${pmd.tests.report.xml.file}" style="${pmd.tests.report.xsl.file}" out="${pmd.tests.report.html.file}" />
+	</target>
+
+	<!-- JDEPEND -->
+
+	<target name="jdepend.init" depends="init">
+		<property name="jdepend.task.class" value="org.apache.tools.ant.taskdefs.optional.jdepend.JDependTask" />
+		<property name="jdepend.lib" location="${jdepend.home}/lib" />
+
+		<property name="jdepend.resources" location="${resource.files}/jdepend/" />
+		<property name="jdepend.tests.report.xsl.file" location="${jdepend.resources}/jdepend.xsl" />
+		<property name="jdepend.graphwiz.xsl.file" location="${jdepend.resources}/jdepend2dot.xsl" />
+
+		<property name="jdepend.results" location="${results}/jdepend/" />
+		<property name="jdepend.tests.report.xml.file" location="${jdepend.results}/jdepend.report.xml" />
+		<property name="jdepend.tests.report.html.file" location="${jdepend.results}/jdepend.report.html" />
+		<property name="jdepend.dot.file" location="${jdepend.results}/jdepend.dot" />
+		<property name="jdepend.png.file" location="${jdepend.results}/jdepend.png" />
+	</target>
+
+
+	<target name="jdepend.check">
+		<available property="have.jdepend" classname="jdepend.xmlui.JDepend" />
+	</target>
+
+	<target name="jdepend.verify" unless="have.jdepend">
+		<fail>Missing Dependencies
+			
+Please provide a valid path to the jdepend install home -Djdepend.home=/path/to/jdepend
+
+		</fail>
+	</target>
+
+	<target name="jdepend.win.exec" if="is.windows">
+		<exec executable="cmd" failonerror="true">
+			<arg line="/c ${ant.home}/bin/ant.bat -lib ${jdepend.lib} jdepend.exec" />
+		</exec>
+	</target>
+
+	<target name="jdepend.unix.exec" unless="is.windows">
+		<exec executable="${ant.home}/bin/ant" failonerror="true" unless="is.windows">
+			<arg line="-lib ${jdepend.lib} jdepend.exec" />
+		</exec>
+	</target>
+
+	<target name="jdepend.exec" depends="jdepend.init, jdepend.check, jdepend.verify">
+		<mkdir dir="${jdepend.results}" />
+		<!-- this does not work, forced to use ant -lib 
+		<path id="jdepend.classpath">
+			<fileset dir="${jdepend.lib}">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+		<taskdef name="jdepend" classpath="${jdepend.classpath}" classname="${jdepend.task.class}" /> 
+		-->
+		<jdepend format="xml" outputfile="${jdepend.tests.report.xml.file}">
+			<exclude name="java.*" />
+			<exclude name="javax.*" />
+			<exclude name="com.sun.*" />
+			<exclude name="org.*" />
+			<exclude name="mock.*" />
+			<exclude name="**/*Test.*" />
+			<exclude name="**/*TestSuite.*" />
+			<exclude name="**/test/**" />
+			<classespath>
+				<!-- check both IDE and build process locations for application classess -->
+				<pathelement location="${app.classes}" />
+			</classespath>
+		</jdepend>
+		<xslt in="${jdepend.tests.report.xml.file}" out="${jdepend.tests.report.html.file}" style="${jdepend.tests.report.xsl.file}" />
+		<xslt in="${jdepend.tests.report.xml.file}" out="${jdepend.dot.file}" style="${jdepend.graphwiz.xsl.file}" />
+		<!-- do not fail on errror, best effort if dot is in path -->
+		<echo>
+NOTE: Attempting image generation, requires "dot" command available from www.graphviz.org in path
+		</echo>
+		<exec executable="dot" >
+			<arg line="-Tpng ${jdepend.dot.file} -o ${jdepend.png.file}"/>
+		</exec>
+	</target>
+
+	<target name="jdepend" 
+		depends="jdepend.init, jdepend.unix.exec, jdepend.win.exec" 
+		description="Design metrics, requires -Djdepend.home=/path/to/jdpend">
+		<!-- doing this exec another ant as a hack because setting classpath 
+		to the jdepend jars does not work for jdepend, need to have the jars 
+		set with -lib at ant startup, so luanching another ant with the -lib 
+		set as a work around -->
+		<echo>Done jdepend tasks</echo>
+	</target>
+
+	<!-- CHECKSTYLE  -->
+
+	<target name="checkstyle.init" depends="init">
+		<property name="checkstyle.resources" location="${resource.files}/checkstyle" />
+		<property name="checkstyle.results" value="${results}/checkstyle" />
+
+		<property name="checkstyle.default.config.file" location="${checkstyle.home}/sun_checks.xml" />
+		<property name="checkstyle.custom.config.file" location="${checkstyle.resources}/sun_checks.xml" />
+
+		<property name="checkstyle.default.xsl.file" value="${checkstyle.home}/contrib/checkstyle-noframes-severity-sorted.xsl" />
+		<property name="checkstyle.custom.xsl.file" value="${checkstyle.resources}/checkstyle-noframes-severity-sorted.xsl" />
+
+		<property name="checkstyle.report.xml.file" value="${checkstyle.results}/checkstyle.report.xml" />
+		<property name="checkstyle.report.html.file" value="${checkstyle.results}/checkstyle.report.html" />
+	</target>
+
+	<target name="checkstyle.check.custom.config">
+		<available file="${checkstyle.custom.config.file}" property="checkstyle.config.file" value="${checkstyle.custom.config.file}" />
+	</target>
+	<target name="checkstyle.check.default.config" unless="checkstyle.config.file">
+		<available file="${checkstyle.default.config.file}" property="checkstyle.config.file" value="${checkstyle.default.config.file}" />
+	</target>
+	<target name="checkstyle.check.custom.xsl">
+		<available file="${checkstyle.custom.xsl.file}" property="checkstyle.xsl.file" value="${checkstyle.custom.xsl.file}" />
+	</target>
+	<target name="checkstyle.check.default.xsl" unless="checkstyle.xsl.file">
+		<available file="${checkstyle.default.xsl.file}" property="checkstyle.xsl.file" value="${checkstyle.default.xsl.file}" />
+	</target>
+
+	<target name="checkstyle.check" depends="checkstyle.check.custom.xsl, checkstyle.check.default.xsl, checkstyle.check.custom.config, checkstyle.check.default.config" if="checkstyle.home">
+		<condition property="have.checkstyle.home" value="true">
+			<isset property="checkstyle.home" />
+		</condition>
+		<pathconvert property="have.checkstyle.jar" setonempty="false" pathsep=" ">
+			<path>
+				<fileset dir="${checkstyle.home}" includes="*checkstyle*all*jar" />
+			</path>
+		</pathconvert>
+		<condition property="have.checkstyle" value="true">
+			<and>
+				<isset property="have.checkstyle.home" />
+				<isset property="have.checkstyle.jar" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="checkstyle.verify.path" unless="checkstyle.home">
+		<fail>Missing Dependencies
+			
+Please provide a valid checkstyle install as -Dcheckstyle.home=/path/to/checkstyle
+			
+		</fail>
+	</target>
+
+	<target name="checkstyle.verify.jar" unless="have.checkstyle.jar" if="checkstyle.home">
+		<fail>Missing Dependencies 
+
+The provided checkstyle home, ${checkstyle.home} is not valid.
+		
+		</fail>
+
+	</target>
+
+	<target name="checkstyle.verify" depends="checkstyle.verify.path, checkstyle.verify.jar" unless="have.checkstyle">
+		<fail>Missing Dependencies 
+
+Untill the above issues are corrected, checkstyle tasks will not be attempted.
+			
+		</fail>
+	</target>
+
+	<target name="checkstyle.run" depends="checkstyle.verify" if="have.checkstyle">
+		<mkdir dir="${checkstyle.results}" />
+		<path id="checkstyle.classpath">
+			<fileset dir="${checkstyle.home}">
+				<include name="**/checkstyle*.jar" />
+			</fileset>
+		</path>
+		<taskdef resource="checkstyletask.properties" classpathref="checkstyle.classpath" />
+		<!-- taskdef resource="checkstyletask.properties" classpath="${checkstyle.jar}" / -->
+		<checkstyle config="${checkstyle.config.file}" failureProperty="checkstyle.failure" failOnViolation="false">
+			<formatter type="xml" tofile="${checkstyle.report.xml.file}" />
+			<fileset dir="${app.src}" includes="**/*.java" />
+		</checkstyle>
+		<xslt in="${checkstyle.report.xml.file}" out="${checkstyle.report.html.file}" style="${checkstyle.xsl.file}" />
+	</target>
+
+	<target name="checkstyle" 
+		depends="checkstyle.init, checkstyle.check, checkstyle.run" 
+		description="Code style, requires -Dcheckstyle.home=/path/to/checkstyle">
+		<echo>Done checkstyle tasks</echo>
+	</target>
+
+	<!-- EMMA  -->
+
+	<target name="tests.emma.run" depends="tests.compile, tests.verify" if="have.junit">
+		<!-- runs the junit tests with emma -->
+		<mkdir dir="${test.results}" />
+		<!-- add showoutput="yes" for test output to console -->
+		<junit printsummary="yes" haltonfailure="false" showoutput="${test.verbose}" fork="yes">
+			<classpath>
+				<!-- get emma libs -->
+				<path refid="emma.lib" />
+				<!-- get the emma instrumented app classes -->
+				<pathelement location="${emma.instr.dir}" />
+				<!-- get the app classes -->
+				<pathelement location="${app.classes}" />
+				<!-- get the test classes -->
+				<pathelement location="${test.classes}" />
+				<!-- get junit and other test framework jars -->
+				<fileset dir="${junit.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="${test.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+				<!-- application lib jars -->
+				<fileset dir="${app.lib}">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+
+			<jvmarg value="-Demma.coverage.out.file=${emma.work.dir}/coverage.emma" />
+			<jvmarg value="-Demma.coverage.out.merge=true" />
+
+			<batchtest todir="${test.results}">
+				<fileset dir="${test.src}">
+					<include name="**/*Test.java" />
+					<!-- exclude old non junit test folder -->
+					<exclude name="**/test/**" />
+				</fileset>
+			</batchtest>
+		</junit>
+
+	</target>
+
+	<target name="tests.emma" depends="tests.init, tests.check, tests.emma.run" if="have.emma">
+		<echo>Done emma test tasks</echo>
+	</target>
+
+	<target name="emma.init" depends="init">
+		<property name="emma.instr.dir" location="${java.io.tmpdir}/emma-instr" />
+		<property name="emma.work.dir" location="${java.io.tmpdir}/emma-work" />
+		<property name="emma.results" location="${results}/emma" />
+		<property name="emma.report.txt.file" location="${emma.results}/emma-report.txt" />
+		<property name="emma.report.html.file" location="${emma.results}/emma-report.html" />
+		<property name="emma.jar" location="${emma.home}/lib/emma.jar" />
+		<property name="emma.ant.jar" location="${emma.home}/lib/emma_ant.jar" />
+	</target>
+
+	<target name="emma.check.home">
+		<condition property="have.emma.home">
+			<isset property="emma.home" />
+		</condition>
+	</target>
+
+	<target name="emma.check.jars">
+		<available file="${emma.jar}" property="have.emma.jar" />
+		<available file="${emma.ant.jar}" property="have.emma.ant.jar" />
+		<condition property="have.emma.jars">
+			<and>
+				<isset property="have.emma.jar" />
+				<isset property="have.emma.ant.jar" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="emma.check" depends="emma.check.home, emma.check.jars">
+		<condition property="have.emma">
+			<and>
+				<isset property="have.emma.home" />
+				<isset property="have.emma.jars" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="emma.verify.home" unless="have.emma.home">
+		<fail>Missing Dependencies
+
+Please provide a valid location for emma install as -Demma.home=/path/to/emma
+
+		</fail>
+	</target>
+
+	<target name="emma.verify.jars" unless="have.emma.jars" if="have.emma.home">
+		<fail>Missing Dependencies
+
+The provided lib location, ${emma.home} is not valid, does not have emma jars.
+
+		</fail>
+	</target>
+
+
+	<target name="emma.verify" depends="emma.verify.home, emma.verify.jars" unless="have.emma">
+		<fail>Missing Dependencies
+
+Untill the above issues are corrected, emma test tasks will not be attempted.
+
+		</fail>
+	</target>
+
+	<target name="emma.setup" if="have.emma">
+		<path id="emma.lib">
+			<pathelement location="${emma.jar}" />
+			<pathelement location="${emma.ant.jar}" />
+		</path>
+		<taskdef resource="emma_ant.properties" classpathref="emma.lib" />
+	</target>
+
+	<target name="emma.instr" if="have.emma">
+		<mkdir dir="${emma.instr.dir}" />
+		<mkdir dir="${emma.work.dir}" />
+		<emma>
+			<instr instrpath="${app.classes}:${test.classes}" 
+				destdir="${emma.instr.dir}" 
+				metadatafile="${emma.work.dir}/metadata.emma" 
+				merge="true" 
+				mode="copy" />
+		</emma>
+	</target>
+
+	<target name="emma.report" if="have.emma">
+		<mkdir dir="${emma.results}" />
+		<emma>
+			<property name="report.html.out.encoding" value="UTF-8" />
+			<report sourcepath="${app.src}">
+				<fileset dir="${emma.work.dir}">
+					<include name="*.emma" />
+				</fileset>
+				<txt outfile="${emma.report.txt.file}" />
+				<html outfile="${emma.report.html.file}" />
+			</report>
+		</emma>
+		<delete dir="${emma.instr.dir}" quiet="true" />
+		<delete dir="${emma.work.dir}" quiet="true" />
+	</target>
+
+	<target name="emma" 
+		depends="emma.init, emma.check, emma.verify, emma.setup, emma.instr, tests.emma, emma.report" 
+		description="Code coverage, requires -Demma.home=/path/to/emmma and -Djunit.lib=/path/to/junit/lib/">
+		<echo>Done emma tasks</echo>
+	</target>
+
+	<!-- DOCS  -->
+
+	<target name="docs.init" depends="init">
+		<property name="doc.results" location="${results}/javadoc" />
+		<property name="uml.results" location="${results}/uml" />
+		<property name="umlgraph.jar" location="${umlgraph.home}/lib/UmlGraph.jar" />
+	</target>
+
+    <target name="docs.check.umlgraph">
+    	<condition property="have.umlgraph.home" value="true">
+    	            <isset property="umlgraph.home" />
+    	        </condition>
+        		<available property="have.umlgraph.jar" file="${umlgraph.jar}" />
+    	        <condition property="have.umlgraph" value="true">
+    	            <and>
+    	                <isset property="have.umlgraph.home" />
+    	                <isset property="have.umlgraph.jar" />
+    	            </and>
+    	        </condition>
+    </target>
+    
+	<target name="docs.verify.umlgraph.path" unless="umlgraph.home">
+	        <fail>Missing Dependencies
+	            
+Please provide a valid umlgraph install as -Dumlgraph.home=/path/to/umlgraph
+	            
+	        </fail>
+	    </target>
+
+	    <target name="docs.verify.umlgraph.jar" unless="have.umlgraph.jar" if="umlgraph.home">
+	        <fail>Missing Dependencies 
+
+The provided umlgraph home, ${umlgraph.home} is not valid.
+	        
+	        </fail>
+
+	    </target>
+
+	    <target name="docs.umlgraph.verify" depends="docs.verify.umlgraph.path, docs.verify.umlgraph.jar" unless="have.umlgraph">
+	        <fail>Missing Dependencies 
+
+Untill the above issues are corrected, umlgraph doc tasks will not be attempted.
+	            
+	        </fail>
+	    </target>
+    
+	<target name="docs.javadoc" unless="have.umlgraph">
+		<mkdir dir="${doc.results}" />
+		<javadoc sourcepath="${app.src}" 
+			classpathref="app.classpath" 
+			packagenames="com.hackorama.plethora.*" 
+			excludepackagenames="${doc.exclude}"
+			destdir="${doc.results}" 
+			private="true" 
+			windowtitle="${project.name}">
+			<doctitle><![CDATA[<h1>${project.name}</h1>]]></doctitle>
+		</javadoc>
+    </target>
+		
+	<target name="docs.javadoc.graphuml" depends="docs.umlgraph.verify" if="have.umlgraph">
+		<mkdir dir="${doc.results}" />
+		<javadoc sourcepath="${app.src}" 
+			classpathref="app.classpath" 
+			packagenames="com.hackorama.plethora.*" 
+			excludepackagenames="${doc.exclude}"
+			destdir="${doc.results}" 
+			private="true" 
+			windowtitle="${project.name}">
+			<doctitle><![CDATA[<h1>${project.name}</h1>]]></doctitle>
+			<doclet name="org.umlgraph.doclet.UmlGraphDoc" path="${umlgraph.jar}">
+				<!-- http://www.umlgraph.org/doc/cd-opt.html -->
+				<param name="-all"/>
+				<param name="-views"/>
+				<param name="-constructors"/>
+				<param name="-inferdep"/>
+                <param name="-inferrel"/>
+                <param name="-hide" value="java.*|org.*|com.sun.*|net.*"/>
+                <param name="-qualify"/>
+                <param name="-postfixpackage"/>
+                <param name="-nodefontsize" value="9"/>
+                <param name="-nodefontpackagesize" value="7"/>
+				<param name="-ranksep"  value="0.1"/>
+				<param name="-collapsible"/>
+				<param name="-link" value="http://docs.oracle.com/javase/6/docs/api/" />
+			</doclet>
+		</javadoc>
+    </target>
+        	
+	<target name="docs.graphuml" if="have.umlgraph">
+		<mkdir dir="${uml.results}" />
+		<javadoc sourcepath="${app.src}" 
+			classpathref="app.classpath" 
+			packagenames="com.hackorama.plethora.*" 
+			excludepackagenames="${doc.exclude}"
+			destdir="${uml.results}" 
+			private="true" >
+			<doclet name="org.umlgraph.doclet.UmlGraph" path="${umlgraph.jar}">
+				<!-- http://www.umlgraph.org/doc/cd-opt.html -->
+				<param name="-all"/>
+				<param name="-views"/>
+				<param name="-constructors"/>
+				<param name="-horizontal"/>
+				<param name="-inferdep"/>
+                <param name="-inferrel"/>
+                <param name="-hide" value="java.*|org.*|com.sun.*|net.*"/>
+                <param name="-qualify"/>
+                <param name="-postfixpackage"/>
+                <param name="-nodefontsize" value="9"/>
+                <param name="-nodefontpackagesize" value="7"/>
+				<param name="-ranksep"  value="0.1"/>
+			</doclet>
+		</javadoc>
+		<apply executable="dot" dest="${uml.results}" parallel="false">
+			<arg value="-Tpng" />
+			<arg value="-o" />
+			<targetfile />
+			<srcfile />
+			<fileset dir="${uml.results}" includes="*.dot" />
+			<mapper type="glob" from="*.dot" to="*.png" />
+		</apply>
+		<echo file="${uml.results}/index.html">
+			<![CDATA[<html><a href="graph.png"><img src="graph.png" width="1200" alt="uml graph" onerror="this.width=0"></a></html>]]>
+		</echo>
+	</target>
+    
+	<target name="docs" 
+		depends="docs.init, docs.check.umlgraph, docs.javadoc, docs.javadoc.graphuml, docs.graphuml" 
+		description="Generates Javadoc API documentation and UML class diagrams">
+		<echo>Done doc tasks</echo>
+	</target>
+
+	<!-- CODEPRO -->
+
+	<target name="codepro.init" depends="init">
+		<property name="codepro.build.xml" location="${resource.files}/codepro/codepro.xml" />
+		<property name="codepro.tmp.proj.location" location="${java.io.tmpdir}/codepro-tmp-project" />
+	</target>
+
+	<!-- Verify the requirements are met before we can attempt codepro tasks
+		1. Valid eclipse install from where we can do a head less eclipse run 
+		2. The codepro specific build xml file to be used 
+	The third check to see if the provided eclipse install has a 
+	valid codepro plugin will be done in the codepro build xml. -->
+	<target name="codepro.check">
+		<available file="${codepro.build.xml}" property="have.codepro.xml" value="true" />
+		<condition property="have.eclipse.home" value="true">
+			<isset property="eclipse.home" />
+		</condition>
+		<available property="have.eclipse" file="${eclipse.home}/plugins" />
+		<condition property="have.codepro" value="true">
+			<and>
+				<isset property="have.codepro.xml" />
+				<isset property="have.eclipse.home" />
+				<isset property="have.eclipse" />
+			</and>
+		</condition>
+	</target>
+
+	<target name="codepro.check.xml" unless="have.codepro.xml">
+		<fail>Missing Dependencies 
+			
+Expecting the codepro specific build xml file at ${codepro.build.xml}
+		
+		</fail>
+	</target>
+
+	<target name="codepro.check.eclipse.home" unless="have.eclipse.home">
+		<fail>Missing Dependencies 
+			
+Provide a valid eclipse home directory as -Declipse.home=/path/to/eclipse/
+		
+		</fail>
+	</target>
+
+	<target name="codepro.check.eclipse" unless="have.eclipse" if="have.eclipse.home">
+		<fail>Missing Dependencies 
+			
+The provided eclipse home, ${eclipse.home} is not valid.
+		
+		</fail>
+	</target>
+
+	<target name="codepro.verify" depends="codepro.check.xml, codepro.check.eclipse.home, codepro.check.eclipse" unless="have.codepro">
+		<fail>Missing Dependencies 
+			
+Untill the above issues are corrected, codepro tasks will not be attempted.
+		
+		</fail>
+	</target>
+
+	<target name="codepro.run" depends="codepro.verify" if="have.codepro">
+		<mkdir dir="${codepro.tmp.proj.location}" />
+		<java fork="true" failonerror="true" classname="org.eclipse.equinox.launcher.Main">
+			<arg value="-clean" />
+			<arg value="-noupdate" />
+			<arg value="-application" />
+			<arg value="org.eclipse.ant.core.antRunner" />
+			<arg value="-data" />
+			<arg file="${codepro.tmp.proj.location}" />
+			<!-- arg value="-verbose" / -->
+			<arg value="-file" />
+			<arg file="${codepro.build.xml}" />
+			<classpath>
+				<fileset dir="${eclipse.home}/plugins">
+					<include name="org.eclipse.equinox.launcher_*.jar" />
+				</fileset>
+			</classpath>
+		</java>
+		<delete dir="${codepro.tmp.proj.location}" quiet="true" />
+	</target>
+
+	<target name="codepro" 
+		depends="codepro.init, codepro.check, codepro.run" 
+		description="Code quality, requires -Declipse.home=/path/to/eclipse/home/with/codepro/plugin">
+		<echo>Done codepro tasks</echo>
+	</target>
+    
+	<!-- MAIN -->
+
+	<target name="testclean" 
+		depends="init" 
+		description="Remove all results and reports">
+		<delete dir="${results}" />
+	</target>
+    
+	<target name="metrics" 
+		depends="findbugs, pmd, jdepend, checkstyle, codepro" 
+		description="Run only the code metrics">
+		<echo>All done</echo>
+	</target>
+
+	<target name="all" 
+		depends="tests, emma, metrics, docs" 
+		description="Run tests, metrics and docs">
+		<echo>All done</echo>
+	</target>
+
+</project>

@@ -1,0 +1,13 @@
+foo : bar
+plethora.foo : one
+plethORA.hOst : localhost 
+plEThora.pOrt : 80
+metricone : metricval 
+metric : value
+metric.type : internal
+metric.level : public 
+metric.description : "this is metric one" 
+name.type : value
+confignumber : 1
+configtext : text
+configbool : true 

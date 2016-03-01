@@ -1,0 +1,57 @@
+PLETHORA-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        enterprises
+                FROM RFC1155-SMI
+        OBJECT-TYPE
+                FROM RFC-1212
+        DisplayString
+                FROM RFC-1213-MIB;
+
+hackorama        OBJECT IDENTIFIER ::= {enterprises 11}
+plethora                OBJECT IDENTIFIER ::= {hackorama 1}
+uno                    OBJECT IDENTIFIER ::= {plethora 1}
+dos                  OBJECT IDENTIFIER ::= {plethora 2}
+tres                   OBJECT IDENTIFIER ::= {plethora 3}
+
+pendingtransactions OBJECT-TYPE
+  SYNTAX  INTEGER
+  ACCESS  read
+  STATUS  mandatory
+  DESCRIPTION
+          "dos pending transactions" 
+  ::= {dos 1}
+
+qc31415patchtracking OBJECT-TYPE
+  SYNTAX  DisplayString
+  ACCESS  read
+  STATUS  mandatory
+  DESCRIPTION
+          "dos 31415 Patch Tracking" 
+  ::= {dos 2}
+  
+retryfailures OBJECT-TYPE
+  SYNTAX  INTEGER
+  ACCESS  read
+  STATUS  mandatory
+  DESCRIPTION
+          "dos retry failures" 
+  ::= {dos 3}
+  
+transactionrate OBJECT-TYPE
+  SYNTAX  INTEGER
+  ACCESS  read
+  STATUS  mandatory
+  DESCRIPTION
+          "dos transaction rate" 
+  ::= {dos 4}
+  
+retryrate OBJECT-TYPE
+  SYNTAX  INTEGER
+  ACCESS  read
+  STATUS  mandatory
+  DESCRIPTION
+          "dos retry_rate" 
+  ::= {dos 5}
+
+END
