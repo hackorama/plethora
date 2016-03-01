@@ -1,7 +1,7 @@
 Plethora
 ====
 
-![Build Status](https://travis-ci.org/hackorama/plethora.svg?branch=master)
+[![Build Status](https://travis-ci.org/hackorama/plethora.svg?branch=master)](https://travis-ci.org/hackorama/plethora)
 
 ![tag logo](https://github.com/hackorama/plethora/blob/master/src/main/resources/web/img/logo.png)
 
