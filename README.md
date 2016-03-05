@@ -29,7 +29,9 @@ Built initially for java ecosystem using JMX protocol extended to work with mult
 
 ### Run Plethora 
 
-Out of the box plethora server collects the system metrics, application modules are not yet connected.
+Out of the box, the Plethora server collects few system metrics from the server Plethora is running.
+
+(We have to configure application modules using Plethora client to expose additional application metrics)
 
     $ ./gradlew runServer
     ...
@@ -84,7 +86,7 @@ From another console interact with running server using HTTP, JMX, SNMP interfac
     get hackorama.system.memory
     $
 
-    $ java -jar jmxterm-1.0-alpha-4-uber.jar -v silent --url localhost:9997 -i plethora.jmx
+    $ java -jar jmxterm-1.0-alpha-4-uber.jar -v silent --url localhost:9998 -i plethora.jmx
     hackorama.plethora.server_name = Plethora Metrics Server;
     hackorama.system.memory = 36;
     $
@@ -128,14 +130,14 @@ http://localhost:9999
 
 #### CLI
 
-    $ cd cd src/main/python/plethoraconsole/
+    $ cd src/main/python/plethoraconsole/
     $ ./console localhost 9999
 
 ![Plethora CLI Console](https://github.com/hackorama/plethora/blob/master/doc/images/plethora-cli-console.png)
 
 ## Connecting to application modules for metrics
 
-Now we can configure Plethora client library inside an application module and expose metrics to the Plethora server.
+Now we can configure the Plethora client library inside an application module and expose the module's metrics to the Plethora server.
 
 ### Java Example
 
