@@ -141,7 +141,7 @@ Now we can configure the Plethora client library inside an application module an
 
 ### Java Example
 
-## Build the Plethora client jar
+#### Build the Plethora client jar
 
     $ git clone https://github.com/hackorama/plethora
     $ cd plethora/
@@ -150,11 +150,11 @@ Now we can configure the Plethora client library inside an application module an
     build/libs/plethora_client-1.0.jar
     $
 
-## Build jdemo the java demo application using the client jar and the JMX jar
+#### Build jdemo the java demo application using the client jar and the JMX jar
 
     $ javac -cp build/libs/plethora_client-1.0.jar:lib/jmx/jmxremote_optional.jar src/test/java/com/hackorama/plethora/examples/DemoAppServer.java
 
-## Run the jdemo application with the demo metrics properties file
+#### Run the jdemo application with the demo metrics properties file
 
     $ java -cp build/libs/plethora_client-1.0.jar:lib/jmx/jmxremote_optional.jar:src/test/java com.hackorama.plethora.examples.DemoAppServer src/test/resources/examples/jdemo.metrics.properties
     INFO: Server MBean : Adding attribute cache_mode
@@ -165,7 +165,7 @@ Now we can configure the Plethora client library inside an application module an
     INFO: Started channel jmx agent plethora:name=jdemo at localhost:9001
     INFO: Started plethora channel jdemo
 
-## Update Plethora server configuration with the connection for this demo application we just started.
+#### Update Plethora server configuration with the connection for this demo application we just started.
 
     $ vi src/main/resources/plethora.properties
     ...
@@ -174,7 +174,7 @@ Now we can configure the Plethora client library inside an application module an
     ...
     $
 
-## And start or restart Plethora server
+#### And start or restart Plethora server
 
 You will see log messages about the jdemo module metrics and connection.
 
@@ -189,7 +189,7 @@ You will see log messages about the jdemo module metrics and connection.
     ...
     Plethora Server Ready
 
-## Verify the jdemo module metrics are available
+#### Verify the jdemo module metrics are available
 
     $ curl http://localhost:9999/get/hackorama.jdemo.queue_fill_rate
     42
