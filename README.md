@@ -141,7 +141,60 @@ Now we can configure the Plethora client library inside an application module an
 
 ### Java Example
 
-TODO 
+## Build the Plethora client jar
+
+    $ git clone https://github.com/hackorama/plethora
+    $ cd plethora/
+    $ ./gradlew clientJar
+    $ ls build/libs/*client*
+    build/libs/plethora_client-1.0.jar
+    $
+
+## Build jdemo the java demo application using the client jar and the JMX jar
+
+    $ javac -cp build/libs/plethora_client-1.0.jar:lib/jmx/jmxremote_optional.jar src/test/java/com/hackorama/plethora/examples/DemoAppServer.java
+
+## Run the jdemo application with the demo metrics properties file
+
+    $ java -cp build/libs/plethora_client-1.0.jar:lib/jmx/jmxremote_optional.jar:src/test/java com.hackorama.plethora.examples.DemoAppServer src/test/resources/examples/jdemo.metrics.properties
+    INFO: Server MBean : Adding attribute cache_mode
+    INFO: Server MBean : Adding attribute connection
+    INFO: Server MBean : Adding attribute log_level
+    INFO: Server MBean : Adding attribute queue_fill_rate
+    INFO: JMX agent started for jdemo at localhost:9001 (service:jmx:jmxmp://localhost:9001)
+    INFO: Started channel jmx agent plethora:name=jdemo at localhost:9001
+    INFO: Started plethora channel jdemo
+
+## Update Plethora server configuration with the connection for this demo application we just started.
+
+    $ vi src/main/resources/plethora.properties
+    ...
+    jmxmodule.jdemo.host = localhost
+    jmxmodule.jdemo.port = 9001
+    ...
+    $
+
+## And start or restart Plethora server
+
+You will see log messages about the jdemo module metrics and connection.
+
+    $ ./gradlew runServer
+    ...
+    INFO: Added metric hackorama.jdemo.cache_mode as TEXT
+    INFO: Added metric hackorama.jdemo.connection as NUMBER
+    INFO: Added metric hackorama.jdemo.log_level as TEXT
+    INFO: Added metric hackorama.jdemo.queue_fill_rate as NUMBER
+    INFO: Module jdemo connected
+    INFO: JMX module jdemo ready
+    ...
+    Plethora Server Ready
+
+## Verify the jdemo module metrics are available
+
+    $ curl http://localhost:9999/get/hackorama.jdemo.queue_fill_rate
+    42
+    $
+
 
 ### Python Example
 
