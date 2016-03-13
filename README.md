@@ -8,8 +8,11 @@ Plethora
 
 Application metrics collection framework to gather metrics from each module of a distributed polyglot application.
 Built initially for java ecosystem using JMX protocol extended to work with multiple platforms (Java, Python, C++, Go etc.) and multiple protocols JMX, SNMP, HTTP. 
+![Plethora System Diagram](https://github.com/hackorama/plethora/blob/master/doc/images/plethora-system-diagram.png)
 
-![Plethora Web Console](https://github.com/hackorama/plethora/blob/master/doc/images/plethora-web-console.png)
+[Plethora at Hackorama](http://plethora.hackorama.com/)
+
+[Plethora Demo Server](http://hackorama.com:9999/)
 
 ## Getting Started
 
