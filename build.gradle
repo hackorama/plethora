@@ -5,6 +5,10 @@ apply plugin: "jacoco"
 
 sourceCompatibility = 1.7
 
+jacoco {
+    toolVersion = "0.8.1"
+}
+
 repositories {
    flatDir { dirs 'lib/jmx', 'lib/json', 'lib/sigar', 'lib/snmp', 'lib/tests' }
    mavenCentral()
