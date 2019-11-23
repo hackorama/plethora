@@ -1,5 +1,6 @@
 language: java
-install: true
+jdk:
+  - openjdk8
 
 before_script:
   - chmod +x gradlew
