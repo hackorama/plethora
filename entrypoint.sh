@@ -1,0 +1,2 @@
+#!/bin/bash
+/usr/bin/java -Dfile.encoding=UTF-8 -cp /plethora/build/classes/main:/plethora/build/resources/main:/plethora/lib/json/json.jar:/plethora/lib/jmx/rmissl.jar:/plethora/lib/jmx/jmxremote.jar:/plethora/lib/jmx/jmxremote_optional.jar:/plethora/lib/sigar/log4j.jar:/plethora/lib/sigar/sigar.jar:/plethora/lib/snmp/snmp4j-2.1.0.jar:/plethora/lib/snmp/snmp4j-2.1.0-javadoc.jar:/plethora/lib/snmp/snmp4j-agent-2.0.6.jar com.hackorama.plethora.main.Plethora /plethora/plethora.properties
